@@ -38,30 +38,41 @@ pipeline {
             steps {
                 script {
                     withDockerRegistry(credentialsId: 'docker-credentials', toolName:'docker') {
-                        sh 'docker build -t kaungmyathan/camp:latest .'
+                        sh 'docker build -t kaungmyathan/campa:latest .'
                     }
                 }
             }
         }
         stage('Trivy Image Scan') {
             steps {
-                sh 'trivy image --format table -o fs-report.html kaungmyathan/camp:latest'
+                sh 'trivy image --format table -o fs-report.html kaungmyathan/campa:latest'
             }
         }
         stage('Docker Push Image') {
             steps {
                 script {
                     withDockerRegistry(credentialsId: 'docker-credentials', toolName: 'docker') {
-                        sh 'docker push kaungmyathan/camp:latest'
+                        sh 'docker push kaungmyathan/campa:latest'
                     }
                 }
             }
         }
-        stage('Docker deploy') {
+        stage('Deploy to k8s') {
             steps {
                 script {
-                    withDockerRegistry(credentialsId: 'docker-credentials', toolName: 'docker') {
-                        sh 'docker run -d -p 3000:3000 kaungmyathan/camp:latest'
+                    withKubeCredentials(kubectlCredentials: [[caCertificate: '', clusterName: 'eks-5', contextName: '', credentialsId: 'k8-token', namespace: 'webapps', serverUrl: 'https://A6ABE060CD2E69460427F5BBEF3C3B5F.gr7.ap-southeast-1.eks.amazonaws.com']]) {
+                        sh 'kubectl apply -f Manifests/dss.yml'
+                        sleep 60
+                    }
+                }
+            }
+        }
+        stage('verify the deployment') {
+            steps {
+                script {
+                    withKubeCredentials(kubectlCredentials: [[caCertificate: '', clusterName: 'eks-5', contextName: '', credentialsId: 'k8-token', namespace: 'webapps', serverUrl: 'https://A6ABE060CD2E69460427F5BBEF3C3B5F.gr7.ap-southeast-1.eks.amazonaws.com']]) {
+                        sh 'kubectl get pods -n webapps'
+                        sh 'kubectl get svc -n webapps'
                     }
                 }
             }
